@@ -84,7 +84,7 @@ export function repoOf(p: string, roots: string[]): string | undefined {
   return undefined;
 }
 
-export type RelatedRepo = { path: string; why: string };
+export type RelatedRepo = { path: string; why: string; knowledge?: true }; // knowledge: 말·할 일에서 못 찾아 기본 지식 저장소(cfg.knowledgeRepo)로 간 경우
 
 // 말에 레포 이름이 나오면(가장 긴 이름이 이김) 그 레포
 function named(text: string, repos: string[]): string | undefined {
@@ -95,6 +95,19 @@ function named(text: string, repos: string[]): string | undefined {
 
 // 이 대화의 관련 레포: ① 지금 말에 레포 이름 ② 이 대화의 최근 사용자 말 ③ 할 일 원본(커밋·세션의 레포) ④ 할 일 제목·설명·메모에 레포 이름 ⑤ KG 프로젝트 노드
 export function relatedRepo(
+  cfg: Pick<Config, "repoRoots" | "knowledgeRepo">, store: Store, opts: { todo?: Todo; text: string; history?: ChatTurn[]; repos?: string[] },
+): RelatedRepo | undefined {
+  return mentionedRepo(cfg, store, opts) ?? knowledgeRepo(cfg);
+}
+
+// ⑥ 아무 데서도 못 찾으면 기본 지식 저장소(정책·용어 문서 허브). 허용 루트 안일 때만 — 밖이면 cwd 로도 못 쓴다(askCwd)
+function knowledgeRepo(cfg: Pick<Config, "repoRoots" | "knowledgeRepo">): RelatedRepo | undefined {
+  const p = cfg.knowledgeRepo;
+  if (!p || !insideRoots(p, cfg.repoRoots)) return undefined;
+  return { path: p, why: "기본 지식 저장소", knowledge: true };
+}
+
+function mentionedRepo(
   cfg: Pick<Config, "repoRoots">, store: Store, opts: { todo?: Todo; text: string; history?: ChatTurn[]; repos?: string[] },
 ): RelatedRepo | undefined {
   const repos = (opts.repos ?? findRepos(cfg.repoRoots)).filter((r) => insideRoots(r, cfg.repoRoots));
@@ -150,10 +163,14 @@ export function checkoutNote(c?: Checkout): string | undefined {
   return `- 로컬 체크아웃: ${where}${lag ? ` — ${lag}` : ""}(원격은 마지막 fetch 기준).${stale ? ` 로컬 파일은 옛 버전일 수 있다 — 변경을 계획하기 전에 원격 기준(git show ${ref}:<경로>, git log ${ref})으로 확인해.` : ""}`;
 }
 
+// 기본 지식 저장소(서비스 정책·도메인 용어 문서 허브)로 갔을 때 붙는 규칙 — 그 저장소의 규약(CLAUDE.md)과 조회 스킬을 따르고, 근거·신뢰도를 붙인다
+const KNOWLEDGE_RULE = "- 이 레포는 지식 저장소다(코드가 아니라 서비스 정책·도메인 용어·업무 규칙 문서). 정책·용어·\"지금 어떻게 돼 있어\" 질문이면 먼저 그 폴더의 CLAUDE.md 규약을 읽고, .claude/skills/ 에 조회 스킬(예: domain-lookup)이 있으면 그 절차대로 찾는다. 답에는 근거(어느 문서·코드)와 얼마나 믿을 수 있는지, 확인 못 한 것을 붙인다. 짐작으로 정책을 말하지 않는다. 비개발자에게 말하듯 정책 언어로.";
+
 export function codeBlock(roots: string[], repo?: RelatedRepo, checkout: string | undefined = repo ? checkoutNote(checkoutState(repo.path)) : undefined): string {
   return [
     "## 코드",
     repo ? `- 관련 레포: ${repo.path} (${repo.why}). 사용자가 다른 레포 이름을 말하면 그걸 본다.` : "- 관련 레포: (모름 — 코드 질문이면 어느 레포인지 말에서 찾거나 되물어라)",
+    ...(repo?.knowledge ? [KNOWLEDGE_RULE] : []),
     ...(checkout ? [checkout] : []),
     `- Read·Glob·Grep 으로 ${roots.join(", ")} 안의 레포 파일은 바로 읽는다(절대 경로로). 그 밖 경로는 승인 카드가 뜬다. .env·자격 증명 파일은 못 읽는다.`,
     "- 코드·레포 질문이면 짐작하지 말고 파일을 읽고 답한다. 필요한 만큼만(큰 파일은 Grep 으로 찾고 부분만 Read).",

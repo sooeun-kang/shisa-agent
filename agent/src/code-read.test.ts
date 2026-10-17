@@ -168,3 +168,21 @@ test("isSecretPath: 심볼릭 링크로 이름을 숨긴 .env·~/.cy-agent 도 �
   assert.equal(isSecretPath(join(app, "state", "config.json")), true);
   assert.equal(isSecretPath(join(app, "README.md")), false);
 });
+
+test("관련 레포를 못 찾으면 knowledgeRepo(기본 지식 저장소)로 — 말에 레포 이름이 있으면 그쪽이 이김, 코드 안내에 정책 조회 규칙이 붙는다", () => {
+  const f = fixture();
+  const s = new Store(":memory:");
+  const know = join(f.root, "app");
+  const cfg = { repoRoots: f.roots, knowledgeRepo: know };
+  const r = relatedRepo(cfg, s, { text: "배송비 정산 정책이 지금 어떻게 돼?", repos: f.repos });
+  assert.deepEqual(r, { path: know, why: "기본 지식 저장소", knowledge: true });
+  assert.equal(relatedRepo(cfg, s, { text: "cy-agent 코드 봐줘", repos: f.repos })!.path, join(f.root, "cy-agent"));
+  assert.equal(relatedRepo({ repoRoots: f.roots }, s, { text: "정책이 어떻게 돼?", repos: f.repos }), undefined);
+  // 지식 저장소 밖(허용 루트 밖) 경로는 쓰지 않는다
+  assert.equal(relatedRepo({ repoRoots: f.roots, knowledgeRepo: f.outside }, s, { text: "정책?", repos: f.repos }), undefined);
+  const block = codeBlock(f.roots, r, undefined);
+  assert.match(block, /지식 저장소/);
+  assert.match(block, /CLAUDE\.md/);
+  assert.match(block, /근거/);
+  assert.ok(!/CLAUDE\.md/.test(codeBlock(f.roots, { path: know, why: "지금 말에 나온 레포" }, undefined)));
+});

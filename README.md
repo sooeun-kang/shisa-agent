@@ -339,6 +339,7 @@ cd ~/shisa-agent && ./ops/uninstall.sh
 | `brain.gensparkApiKey` | `CY_AGENT_GENSPARK_API_KEY` |  | Genspark 키. 비워 두면 `gsk login`이 남긴 키(`~/.genspark-tool-cli/config.json`)를 쓸 때마다 읽습니다. 유료 플랜이 있어야 대답합니다 |
 | `user.name` / `user.aliases` | `CY_AGENT_USER_NAME` | git `user.name` | 부를 이름 / 지식그래프에서 "나"로 볼 다른 이름들. 비워 두면 git 이름을 부르고, git 이름·이메일 아이디·맥 계정 이름도 "나"로 봅니다 |
 | `repoRoots` |  | 새 설치는 `[]`, 예전 설정은 `["~/code"]` | 코드를 고쳐도 되는 레포 폴더. 개요의 내 커밋도 이 폴더에서만 읽습니다. 이 밖은 건드리지 않습니다 |
+| `knowledgeRepo` |  |  | 기본 지식 저장소(서비스 정책·도메인 용어 문서 허브)의 절대 경로. 채팅에서 관련 레포를 못 찾으면 이 폴더를 보고, 그 안의 `CLAUDE.md` 규약과 `.claude/skills`의 조회 스킬을 따라 근거·신뢰도와 함께 답합니다. `repoRoots`에도 자동으로 들어갑니다 |
 | `allowMcp` |  | `[]` | 커넥터 밖에서 채팅이 더 써도 되는 MCP 서버 이름(예: `["notion"]`). 여기 없는 서버는 Claude Code에 등록돼 있어도 브리핑·채팅에서 쓰지 않습니다 |
 | `connectors.<기능>` | `CY_AGENT_SLACK_USER_TOKEN`, `CY_AGENT_CALENDAR_ICS_URL` | 전부 off | 위 [연결](#연결) 참고 |
 | `slackBotToken` / `slackAppToken` / `slackUserId` | `SLACK_BOT_TOKEN` / `SLACK_APP_TOKEN` / `SLACK_USER_ID` |  | (선택) Slack 봇 DM·할 일 캔버스. [slack.md](docs/connect/slack.md) |

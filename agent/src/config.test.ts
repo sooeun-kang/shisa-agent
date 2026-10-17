@@ -102,3 +102,20 @@ test("cy.db 는 0600", { skip: NO_MODES }, async () => {
   assert.equal(statSync(p).mode & 0o777, 0o600);
   s.db.close();
 });
+
+test("knowledgeRepo: 절대 경로면 받고 repoRoots 에도 넣는다(이미 안이면 그대로), 상대 경로·글 아닌 값은 빼고 알림", () => {
+  const a = loadConfig({}, { onboarded: true, repoRoots: ["/x/code"], knowledgeRepo: "/x/docs/" } as any);
+  assert.equal(a.knowledgeRepo, "/x/docs");
+  assert.deepEqual(a.repoRoots, ["/x/code", "/x/docs"]);
+  // 이미 루트 안(또는 같은 폴더)이면 repoRoots 는 그대로
+  const b = loadConfig({}, { onboarded: true, repoRoots: ["/x"], knowledgeRepo: "/x/docs" } as any);
+  assert.equal(b.knowledgeRepo, "/x/docs");
+  assert.deepEqual(b.repoRoots, ["/x"]);
+  // 상대 경로·숫자는 못 쓴다 → 알림
+  for (const bad of ["docs", 3, "/"]) {
+    const c = loadConfig({}, { onboarded: true, repoRoots: [], knowledgeRepo: bad } as any);
+    assert.equal(c.knowledgeRepo, undefined, String(bad));
+    assert.ok(c.configNotes?.some((n) => /knowledgeRepo/.test(n)), String(bad));
+  }
+  assert.equal(loadConfig({}, {}).knowledgeRepo, undefined);
+});

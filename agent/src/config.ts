@@ -6,7 +6,7 @@ import { resolveConnectors, type Connectors } from "./connectors.ts";
 import { homedir, userInfo } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import { phraseLines } from "./phrases.ts";
-import { IS_WIN, isAbsPath, isFsRoot } from "./plat.ts";
+import { IS_WIN, isAbsPath, isFsRoot, pathWithin } from "./plat.ts";
 import { autoMergeList } from "./auto-merge.ts";
 import { todayReminderOf, type TodayReminder } from "./daily-plan.ts";
 import { isNewStyle, onboardedOf, readSessionsOf } from "./onboarding.ts";
@@ -51,6 +51,9 @@ export type Config = {
   // 자동 수정이 허용된 레포 루트들. 이 밖의 경로는 제안하지도 실행하지도 않는다. 대시보드의 git 커밋도 이 폴더에서만 읽는다.
   // 새 설치(onboarding.ts)는 비어 있음: 사용자가 마법사·설정에서 고른 폴더만
   repoRoots: string[];
+  // 기본 지식 저장소(서비스 정책·도메인 용어 문서 허브 레포의 절대 경로). 채팅이 말·할 일에서 관련 레포를 못 찾으면 이 폴더를 cwd 로 쓰고,
+  // 그 안의 CLAUDE.md 규약·.claude/skills 조회 스킬을 따라 근거와 함께 답한다(code-read.ts). loadConfig 가 repoRoots 에도 넣는다(읽기는 묻지 않고 허용)
+  knowledgeRepo?: string;
   // 설치 마법사를 마쳤나(onboarding.ts). false 면 모델 작업·작업 기록·git 읽기를 하지 않는다. 예전 설정(키 없음)은 true
   onboarded?: boolean;
   // 이 맥의 Claude Code·Codex 작업 기록(claudeProjectsDir·codexSessionsDir)을 읽나. 새 설치는 끔(마법사·설정에서 켠다)
@@ -244,6 +247,14 @@ function githubConfig(env: NodeJS.ProcessEnv, raw: unknown): Config["github"] {
 }
 
 // 모르는 값은 기본(tools)
+// knowledgeRepo: 「/」로 시작하는 폴더 경로 하나(repoRoots 와 같은 규칙 — 디스크 맨 위·상대 경로·글 아닌 값은 못 쓴다 → 알림)
+export function knowledgeRepoOf(raw: unknown, notes: string[]): string | undefined {
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  const p = typeof raw === "string" ? repoRootsOf(raw, [])?.[0] : undefined;
+  if (!p) { notes.push(`knowledgeRepo 에 쓸 수 없는 값(${typeof raw === "string" ? raw.slice(0, 80) : typeof raw})이라 비워 뒀어요. 「/」로 시작하는 폴더 경로 하나만, 디스크 맨 위(/)는 안 돼요`); return undefined; }
+  return p;
+}
+
 export function contextModeOf(v: unknown): "tools" | "inline" {
   return typeof v === "string" && v.trim().toLowerCase() === "inline" ? "inline" : "tools";
 }
@@ -313,6 +324,12 @@ export function loadConfig(env = process.env, file: FileConfig = readFileConfig(
     connectors: resolveConnectors(env, f as any),
     brain: configError ? { provider: "local" } : pickBrain(env, f, notes),
   };
+  // 기본 지식 저장소: 허용 루트(repoRoots)에도 넣어 채팅이 묻지 않고 읽고 cwd 로 쓸 수 있게(이미 어느 루트 안이면 그대로)
+  const knowledgeRepo = configError ? undefined : knowledgeRepoOf(f.knowledgeRepo, notes);
+  if (knowledgeRepo) {
+    cfg.knowledgeRepo = knowledgeRepo;
+    if (!cfg.repoRoots.some((r) => pathWithin(knowledgeRepo, r))) cfg.repoRoots = [...cfg.repoRoots, knowledgeRepo];
+  }
   for (const n of notes) console.warn(`[config] ${n}`);
   if (configError) cfg.configError = configError;
   if (notes.length) cfg.configNotes = [...new Set(notes)];

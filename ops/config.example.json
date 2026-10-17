@@ -14,6 +14,7 @@
     "issues": { "mode": "mcp", "preset": "github", "server": "github" }
   },
   "repoRoots": ["/Users/YOUR_NAME/code"],
+  "knowledgeRepo": "/Users/YOUR_NAME/service-documents",
   "gitAuthor": { "name": "your-github-handle", "email": "you@users.noreply.github.com" },
   "user": { "name": "홍길동", "aliases": ["Gildong Hong", "gildong"] },
   "models": { "code": "claude-opus-5-5", "general": "claude-sonnet-5-5", "light": "claude-haiku-5-5" },
